@@ -1,3 +1,42 @@
 # PDF Note
 
-Android PDF reader with highlights, notes, bookmarks, recent documents, and annotation backup.
+가볍고 개인정보 친화적인 Android PDF 독서·주석 앱입니다. PDF와 주석은 서버로 전송되지 않고 기기에만 저장됩니다.
+
+## 주요 기능
+
+- Android 파일 선택기로 PDF 열기 및 다른 앱에서 PDF 공유받기
+- 네 가지 색상의 형광펜(영역 드래그)
+- 형광펜별 간단 메모 추가·수정·삭제
+- 페이지 즐겨찾기 및 목록 이동
+- 메모·형광펜 전체 목록과 페이지 바로가기
+- 페이지 번호로 이동
+- 최근 문서 다시 열기
+- 핀치 확대(1×~4×)
+- 문서별 주석 자동 저장
+- 주석과 즐겨찾기 JSON 백업
+- 네트워크·저장소 전체 접근 권한 불필요
+
+> 주석은 원본 PDF 자체에 삽입되지 않고 앱 내부에 별도로 보관됩니다. 원본 파일이 이동되거나 삭제되면 다시 열지 못할 수 있습니다.
+
+## 요구 사항
+
+- Android 8.0 (API 26) 이상
+- 암호화되지 않은 PDF
+
+## 빌드
+
+Android Studio에서 프로젝트를 열거나 다음 명령을 실행합니다.
+
+```bash
+gradle assembleDebug
+```
+
+GitHub Actions의 `Android CI` 워크플로는 push마다 디버그 APK를 빌드합니다. `v`로 시작하는 태그(예: `v1.0.0`)를 push하면 바로 설치 가능한 APK와 GitHub Release를 생성합니다. 현재 공개 릴리스 APK는 편의상 Android 디버그 키로 서명되므로 Play Store 배포 전에는 별도 비공개 키를 설정해야 합니다.
+
+## 개인정보
+
+앱은 인터넷 권한을 요청하지 않습니다. PDF, 메모, 즐겨찾기는 모두 사용자의 Android 기기 안에 남습니다.
+
+## 라이선스
+
+MIT
