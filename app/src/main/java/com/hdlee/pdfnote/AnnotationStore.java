@@ -21,12 +21,14 @@ final class AnnotationStore {
         float left, top, right, bottom;
         int color;
         String note;
+        boolean noteOnly;
 
         JSONObject toJson() throws JSONException {
             JSONObject o = new JSONObject();
             o.put("page", page).put("left", left).put("top", top)
                     .put("right", right).put("bottom", bottom)
-                    .put("color", color).put("note", note == null ? "" : note);
+                    .put("color", color).put("note", note == null ? "" : note)
+                    .put("noteOnly", noteOnly);
             return o;
         }
 
@@ -39,6 +41,7 @@ final class AnnotationStore {
             m.bottom = (float) o.optDouble("bottom");
             m.color = o.optInt("color", 0x66FFEB3B);
             m.note = o.optString("note", "");
+            m.noteOnly = o.optBoolean("noteOnly", false);
             return m;
         }
     }

@@ -16,6 +16,7 @@ final class PdfPageView extends View {
     interface Listener {
         void onHighlightCreated(AnnotationStore.Mark mark);
         void onMarkTapped(AnnotationStore.Mark mark);
+        void onMemoPointRequested(int page, float x, float y);
     }
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -24,6 +25,7 @@ final class PdfPageView extends View {
     private List<AnnotationStore.Mark> marks;
     private int page;
     private boolean highlightMode;
+    private boolean memoMode;
     private int highlightColor = 0x66FFEB3B;
     private float startX, startY, currentX, currentY;
     private boolean drawing;
@@ -54,8 +56,19 @@ final class PdfPageView extends View {
 
     void setHighlightMode(boolean enabled, int color) {
         highlightMode = enabled;
+        if (enabled) memoMode = false;
         highlightColor = color;
         invalidate();
+    }
+
+    void setMemoMode(boolean enabled) {
+        memoMode = enabled;
+        if (enabled) highlightMode = false;
+        invalidate();
+    }
+
+    private float highlightHeight(RectF dest) {
+        return Math.max(12f, dest.height() * 0.022f);
     }
 
     private RectF contentRect() {
@@ -75,18 +88,27 @@ final class PdfPageView extends View {
         canvas.drawRect(dest, paint);
         canvas.drawBitmap(bitmap, null, dest, paint);
         if (marks != null) for (AnnotationStore.Mark m : marks) if (m.page == page) {
-            paint.setColor(m.color);
-            canvas.drawRect(dest.left + m.left * dest.width(), dest.top + m.top * dest.height(),
-                    dest.left + m.right * dest.width(), dest.top + m.bottom * dest.height(), paint);
-            if (m.note != null && !m.note.isEmpty()) {
+            if (!m.noteOnly) {
+                paint.setColor(m.color);
+                canvas.drawRect(dest.left + m.left * dest.width(), dest.top + m.top * dest.height(),
+                        dest.left + m.right * dest.width(), dest.top + m.bottom * dest.height(), paint);
+            }
+            if (m.noteOnly || (m.note != null && !m.note.isEmpty())) {
                 paint.setColor(0xFF1565C0);
-                canvas.drawCircle(dest.left + m.right * dest.width(), dest.top + m.top * dest.height(), 9f, paint);
+                float cx = dest.left + m.right * dest.width();
+                float cy = dest.top + m.top * dest.height();
+                canvas.drawCircle(cx, cy, 12f, paint);
+                paint.setColor(Color.WHITE); paint.setStrokeWidth(2f);
+                canvas.drawLine(cx - 5f, cy - 3f, cx + 5f, cy - 3f, paint);
+                canvas.drawLine(cx - 5f, cy + 2f, cx + 2f, cy + 2f, paint);
             }
         }
         if (drawing) {
             paint.setColor(highlightColor);
-            canvas.drawRect(Math.min(startX, currentX), Math.min(startY, currentY),
-                    Math.max(startX, currentX), Math.max(startY, currentY), paint);
+            float centerY = (startY + currentY) / 2f;
+            float half = highlightHeight(dest) / 2f;
+            canvas.drawRect(Math.min(startX, currentX), centerY - half,
+                    Math.max(startX, currentX), centerY + half, paint);
         }
     }
 
@@ -106,17 +128,24 @@ final class PdfPageView extends View {
             if (drawing) {
                 currentX = Math.max(dest.left, Math.min(dest.right, e.getX()));
                 currentY = Math.max(dest.top, Math.min(dest.bottom, e.getY()));
-                if (Math.abs(currentX - startX) > 12 && Math.abs(currentY - startY) > 8) {
+                if (Math.abs(currentX - startX) > 12) {
                     AnnotationStore.Mark m = new AnnotationStore.Mark();
                     m.page = page;
                     m.left = (Math.min(startX, currentX) - dest.left) / dest.width();
-                    m.top = (Math.min(startY, currentY) - dest.top) / dest.height();
                     m.right = (Math.max(startX, currentX) - dest.left) / dest.width();
-                    m.bottom = (Math.max(startY, currentY) - dest.top) / dest.height();
+                    float centerY = (startY + currentY) / 2f;
+                    float half = highlightHeight(dest) / 2f;
+                    m.top = (Math.max(dest.top, centerY - half) - dest.top) / dest.height();
+                    m.bottom = (Math.min(dest.bottom, centerY + half) - dest.top) / dest.height();
                     m.color = highlightColor;
                     listener.onHighlightCreated(m);
                 }
                 drawing = false; invalidate(); return true;
+            }
+            if (Math.hypot(e.getX() - startX, e.getY() - startY) < 20 && memoMode && dest.contains(e.getX(), e.getY())) {
+                listener.onMemoPointRequested(page, (e.getX() - dest.left) / dest.width(),
+                        (e.getY() - dest.top) / dest.height());
+                return true;
             }
             if (Math.hypot(e.getX() - startX, e.getY() - startY) < 20 && marks != null) {
                 float nx = (e.getX() - dest.left) / dest.width();
