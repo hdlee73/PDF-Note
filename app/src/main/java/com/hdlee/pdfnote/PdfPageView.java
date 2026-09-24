@@ -27,8 +27,9 @@ final class PdfPageView extends View {
     private boolean highlightMode;
     private boolean memoMode;
     private int highlightColor = 0x66FFEB3B;
-    private float startX, startY, currentX, currentY;
-    private boolean drawing;
+    private float startX, startY, currentX, currentY, lastX, lastY;
+    private float panX, panY;
+    private boolean drawing, panning, gestureMoved, scalingOccurred;
     private float scale = 1f;
     private final Listener listener;
 
@@ -37,10 +38,30 @@ final class PdfPageView extends View {
         this.listener = listener;
         setBackgroundColor(0xFFDDDDDD);
         scaleDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override public boolean onScaleBegin(ScaleGestureDetector detector) {
+                drawing = false;
+                panning = false;
+                scalingOccurred = true;
+                return true;
+            }
+
             @Override public boolean onScale(ScaleGestureDetector detector) {
+                RectF before = contentRect();
+                float focusX = detector.getFocusX();
+                float focusY = detector.getFocusY();
+                float nx = before.width() == 0 ? 0.5f : (focusX - before.left) / before.width();
+                float ny = before.height() == 0 ? 0.5f : (focusY - before.top) / before.height();
                 scale = Math.max(1f, Math.min(4f, scale * detector.getScaleFactor()));
+                float[] size = contentSize();
+                panX = focusX - nx * size[0] - (getWidth() - size[0]) / 2f;
+                panY = focusY - ny * size[1] - (getHeight() - size[1]) / 2f;
+                clampPan();
                 invalidate();
                 return true;
+            }
+
+            @Override public void onScaleEnd(ScaleGestureDetector detector) {
+                clampPan();
             }
         });
     }
@@ -51,6 +72,7 @@ final class PdfPageView extends View {
         page = pageNumber;
         marks = allMarks;
         scale = 1f;
+        panX = panY = 0f;
         invalidate();
     }
 
@@ -71,13 +93,30 @@ final class PdfPageView extends View {
         return Math.max(12f, dest.height() * 0.022f);
     }
 
-    private RectF contentRect() {
-        if (bitmap == null) return new RectF();
+    private float[] contentSize() {
+        if (bitmap == null) return new float[]{0f, 0f};
         float base = Math.min((float) getWidth() / bitmap.getWidth(), (float) getHeight() / bitmap.getHeight());
         float w = bitmap.getWidth() * base * scale;
         float h = bitmap.getHeight() * base * scale;
-        return new RectF((getWidth() - w) / 2f, (getHeight() - h) / 2f,
-                (getWidth() + w) / 2f, (getHeight() + h) / 2f);
+        return new float[]{w, h};
+    }
+
+    private void clampPan() {
+        if (bitmap == null) return;
+        float[] size = contentSize();
+        float maxX = Math.max(0f, (size[0] - getWidth()) / 2f);
+        float maxY = Math.max(0f, (size[1] - getHeight()) / 2f);
+        panX = Math.max(-maxX, Math.min(maxX, panX));
+        panY = Math.max(-maxY, Math.min(maxY, panY));
+        if (scale <= 1f) panX = panY = 0f;
+    }
+
+    private RectF contentRect() {
+        if (bitmap == null) return new RectF();
+        float[] size = contentSize();
+        float left = (getWidth() - size[0]) / 2f + panX;
+        float top = (getHeight() - size[1]) / 2f + panY;
+        return new RectF(left, top, left + size[0], top + size[1]);
     }
 
     @Override protected void onDraw(Canvas canvas) {
@@ -118,13 +157,33 @@ final class PdfPageView extends View {
         RectF dest = contentRect();
         if (e.getAction() == MotionEvent.ACTION_DOWN) {
             startX = currentX = e.getX(); startY = currentY = e.getY();
+            lastX = startX; lastY = startY;
+            gestureMoved = false; scalingOccurred = false;
             drawing = highlightMode && dest.contains(startX, startY);
+            panning = scale > 1f && !highlightMode && !memoMode;
+            getParent().requestDisallowInterceptTouchEvent(drawing || panning);
             invalidate(); return true;
+        }
+        if (e.getAction() == MotionEvent.ACTION_POINTER_DOWN) {
+            drawing = false; panning = false; scalingOccurred = true;
+            return true;
         }
         if (e.getAction() == MotionEvent.ACTION_MOVE && drawing) {
             currentX = e.getX(); currentY = e.getY(); invalidate(); return true;
         }
+        if (e.getAction() == MotionEvent.ACTION_MOVE && panning && e.getPointerCount() == 1) {
+            float dx = e.getX() - lastX;
+            float dy = e.getY() - lastY;
+            panX += dx; panY += dy;
+            lastX = e.getX(); lastY = e.getY();
+            if (Math.hypot(e.getX() - startX, e.getY() - startY) > 8) gestureMoved = true;
+            clampPan(); invalidate(); return true;
+        }
         if (e.getAction() == MotionEvent.ACTION_UP) {
+            getParent().requestDisallowInterceptTouchEvent(false);
+            if (scalingOccurred || (panning && gestureMoved)) {
+                panning = false; return true;
+            }
             if (drawing) {
                 currentX = Math.max(dest.left, Math.min(dest.right, e.getX()));
                 currentY = Math.max(dest.top, Math.min(dest.bottom, e.getY()));
