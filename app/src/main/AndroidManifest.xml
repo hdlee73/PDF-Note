@@ -10,6 +10,7 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+        <package android:name="com.hdlee73.englishstudy" />
     </queries>
     <application
         android:allowBackup="true"
