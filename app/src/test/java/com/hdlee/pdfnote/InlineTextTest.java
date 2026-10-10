@@ -47,6 +47,14 @@ public class InlineTextTest {
         AnnotationStore.PageElement e=store.elements.get(0);assertEquals("안녕하세요\n두 번째 줄",e.text);assertEquals(.2f,e.left,.001f);assertEquals(.3f,e.top,.001f);assertTrue(e.bottom>e.top);assertTrue(e.right>e.left);assertEquals("sans",e.font);
         assertTrue("완료 후에도 텍스트 모드는 유지",(Boolean)field("memoMode"));
     }
+    @Test public void formatBarHidesWhileTypingAndReturnsOnTouch()throws Exception{
+        EditText edit=startTyping(.2f,.3f);View bar=(View)byTag("inline_style_bar").getParent();
+        assertEquals("입력 전에는 서식 메뉴가 보입니다",View.VISIBLE,bar.getVisibility());
+        edit.setText("입력 시작");assertEquals("입력을 시작하면 서식 메뉴가 사라집니다",View.GONE,bar.getVisibility());
+        long now=android.os.SystemClock.uptimeMillis();edit.dispatchTouchEvent(android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_UP,5f,5f,0));
+        assertEquals("글상자를 다시 누르면 서식 메뉴가 나타납니다",View.VISIBLE,bar.getVisibility());
+        byTag("text_done").performClick();
+    }
     @Test public void styleBarChangesFontBoldItalicSizeAndColor()throws Exception{
         EditText edit=startTyping(.1f,.1f);edit.setText("서식");
         int before=Math.round(AnnotationStore.PageElement.DEFAULT_TEXT_SIZE*595);
