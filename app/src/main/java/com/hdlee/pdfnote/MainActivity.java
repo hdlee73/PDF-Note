@@ -2510,8 +2510,9 @@ public class MainActivity extends Activity implements PdfPageView.Listener {
         inlineEdit=new EditText(this);inlineEdit.setTag("inline_text");inlineEdit.setText(e.text);inlineEdit.setSelection(inlineEdit.getText().length());inlineEdit.setHint("글을 입력하세요");inlineEdit.setHintTextColor(0x66000000|(e.color&0x00FFFFFF));
         inlineEdit.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);inlineEdit.setGravity(Gravity.TOP|Gravity.START);inlineEdit.setIncludeFontPadding(false);inlineEdit.setPadding(dp(3),dp(2),dp(3),dp(2));
         GradientDrawable frame=new GradientDrawable();frame.setColor(0x66FFFFFF);frame.setCornerRadius(dp(4));frame.setStroke(dp(1),ACCENT);inlineEdit.setBackground(frame);inlineEdit.setMinHeight(0);inlineEdit.setMinimumHeight(0);
-        inlineEdit.addTextChangedListener(new android.text.TextWatcher(){int newline=-1;boolean busy;public void beforeTextChanged(CharSequence q,int a,int b,int c){}public void onTextChanged(CharSequence q,int a,int b,int c){e.text=q.toString();newline=(!busy&&b==0&&c==1&&q.charAt(a)=='\n')?a:-1;}
+        inlineEdit.addTextChangedListener(new android.text.TextWatcher(){int newline=-1;boolean busy;public void beforeTextChanged(CharSequence q,int a,int b,int c){}public void onTextChanged(CharSequence q,int a,int b,int c){e.text=q.toString();if(b!=c)showInlineBar(false);newline=(!busy&&b==0&&c==1&&q.charAt(a)=='\n')?a:-1;}
             public void afterTextChanged(android.text.Editable q){if(newline<0||busy)return;int at=newline;newline=-1;busy=true;try{continueList(q,at);}finally{busy=false;}e.text=q.toString();}});
+        inlineEdit.setOnTouchListener((v,ev)->{if(ev.getActionMasked()==MotionEvent.ACTION_UP)showInlineBar(true);return false;});
         viewportLayer.addView(inlineEdit,new FrameLayout.LayoutParams(dp(120),-2,Gravity.TOP|Gravity.START));
         inlineMove=inlineHandle("✥","글상자 이동",(dx,dy,page)->{float w=e.right-e.left,h=e.bottom-e.top;float nx=Math.max(0f,Math.min(1f-w,e.left+dx/page.width())),ny=Math.max(0f,Math.min(1f-h,e.top+dy/page.height()));e.left=nx;e.right=nx+w;e.top=ny;e.bottom=ny+h;});
         inlineResize=inlineHandle("↔","글상자 너비",(dx,dy,page)->{e.right=Math.max(e.left+.12f,Math.min(1f,e.right+dx/page.width()));});
@@ -2549,6 +2550,8 @@ public class MainActivity extends Activity implements PdfPageView.Listener {
     /** Keeps the toolbar clear of the text being typed: above the box first (the keyboard covers the lower part), else below, else at the top. */
     /** The style bar never wider than the page area (a side panel makes that narrower); smaller widths scroll sideways. */
     private int inlineBarWidth(){int area=viewportLayer!=null&&viewportLayer.getWidth()>0?viewportLayer.getWidth():getResources().getDisplayMetrics().widthPixels;return Math.max(dp(120),Math.min(dp(330),area-dp(16)));}
+    /** The format bar hides while typing so it stays out of the way; touching the text box (tap, long press, selection) brings it back. */
+    private void showInlineBar(boolean shown){if(inlineBar!=null&&(inlineBar.getVisibility()==View.VISIBLE)!=shown)inlineBar.setVisibility(shown?View.VISIBLE:View.GONE);}
     private void placeInlineBar(int editTop,int editBottom){
         if(inlineBar==null||viewportLayer==null||viewportLayer.getHeight()<=0)return;
         {FrameLayout.LayoutParams wl=(FrameLayout.LayoutParams)inlineBar.getLayoutParams();int bw=inlineBarWidth();if(wl.width!=bw){wl.width=bw;inlineBar.setLayoutParams(wl);}}
